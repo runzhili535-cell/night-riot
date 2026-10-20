@@ -91,6 +91,7 @@ function VideoModal({ member, onClose, onSelect }) {
   const [ended, setEnded] = useState(false);
   const [needsPlay, setNeedsPlay] = useState(false);
   const [retry, setRetry] = useState(0);
+  const [fullscreenNotice, setFullscreenNotice] = useState('');
   const [poster, setPoster] = useState(member.image || fallbackPoster);
 
   useEffect(() => {
@@ -134,9 +135,19 @@ function VideoModal({ member, onClose, onSelect }) {
   }, [member, retry]);
 
   const replay = () => { const video = videoRef.current; video.currentTime = 0; video.play().then(() => { setEnded(false); setNeedsPlay(false); }).catch(() => setNeedsPlay(true)); };
+  const enterFullscreen = async () => {
+    try {
+      const video = videoRef.current;
+      if (video.requestFullscreen) await video.requestFullscreen();
+      else if (video.webkitEnterFullscreen) video.webkitEnterFullscreen();
+      else { setFullscreenNotice('当前浏览器未提供全屏功能，请使用播放器原生菜单。'); return; }
+      setFullscreenNotice('');
+    } catch { setFullscreenNotice('未能进入全屏，请再次点击全屏按钮。'); }
+  };
   return <div className="modal-backdrop" onClick={event => { if (event.target === event.currentTarget) onClose(); }}>
     <div className="video-modal" role="dialog" aria-modal="true" aria-labelledby="modal-title" aria-describedby="modal-description" ref={dialogRef}>
-      <div className="modal-top"><span><span className="status-dot" /> NIGHT RIOT / ENTRANCE FILM {member.number}</span><button ref={closeRef} className="modal-close" onClick={onClose} aria-label="关闭视频">CLOSE <Icon name="close" /></button></div>
+      <div className="modal-top"><span><span className="status-dot" /> NIGHT RIOT / ENTRANCE FILM {member.number}</span><div className="modal-actions"><button className="modal-close" onClick={enterFullscreen} aria-label="全屏播放">全屏 <Icon /></button><button ref={closeRef} className="modal-close" onClick={onClose} aria-label="关闭视频">CLOSE <Icon name="close" /></button></div></div>
+      {fullscreenNotice && <p className="fullscreen-notice" aria-live="polite">{fullscreenNotice}</p>}
       <div className="player-wrap"><video key={`${member.id}-${retry}`} ref={videoRef} src={member.videoUrl || undefined} poster={poster} controls playsInline preload="metadata" aria-label={`${member.name} · ${member.roleZh} 出场视频`} onPlaying={() => { setLoading(false); setNeedsPlay(false); setError(''); setEnded(false); }} onLoadedData={() => setLoading(false)} onError={() => { setLoading(false); setError('影片加载失败。请检查网络，或在 src/data.js 中确认该成员的 videoUrl。'); }} onEnded={() => setEnded(true)} />
         {loading && !error && <div className="player-loading" role="status"><span className="loader" />正在点亮舞台…</div>}
         {error && <div className="player-message" role="alert"><Icon name="sound" /><h3>THE STAGE WILL BE BACK.</h3><p>{error}</p><button className="button button-red" onClick={() => setRetry(value => value + 1)}>重新加载 ↻</button></div>}
